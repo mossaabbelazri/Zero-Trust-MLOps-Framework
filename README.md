@@ -60,13 +60,46 @@ env:
     value: "0.5" # Optional: for generic anomaly monitoring
 ```
 
-### 3. Deploy via Jenkins
-Push your code to the `main` branch. The Jenkins pipeline (`Jenkinsfile`) will automatically:
-1. Scan the Python code (SonarQube).
-2. Build and scan the generic Docker image (Trivy).
-3. Provision the GKE cluster using Terraform (tfsec checked).
-4. Inject HashiCorp Vault sidecars.
-5. Deploy Istio in `STRICT` mTLS mode and serve your model securely!
+### 3. Production Deployment (GKE)
+For a full enterprise deployment, ensure you have Google Cloud SDK installed and authenticated. 
+
+1. **Initialize Terraform**:
+   ```bash
+   cd terraform
+   terraform init
+   terraform apply -auto-approve
+   ```
+2. **Trigger CI/CD Pipeline**:
+   Push your code to the `main` branch. The Jenkins pipeline (`Jenkinsfile`) will automatically:
+   - Scan the Python code (SonarQube).
+   - Build and scan the generic Docker image (Trivy).
+   - Inject HashiCorp Vault sidecars.
+   - Deploy Istio in `STRICT` mTLS mode and serve your model securely!
+
+---
+
+## 💻 Local Testing (For Researchers & Evaluators)
+
+If you want to evaluate the generalized API locally without provisioning a Kubernetes cluster, you can run the FastAPI application directly:
+
+1. **Navigate to the application folder:**
+   ```bash
+   cd ml-app
+   ```
+2. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. **Run the local server (Mocking MLflow):**
+   ```bash
+   # Linux/macOS
+   MLFLOW_TRACKING_URI="file:///tmp/mock" uvicorn main:app --reload
+
+   # Windows (PowerShell)
+   $env:MLFLOW_TRACKING_URI="file:///C:/mock"; uvicorn main:app --reload
+   ```
+4. **View the Swagger UI:**
+   Open `http://127.0.0.1:8000/docs` in your browser. The API will gracefully enter *Degraded Mode* (since the mock MLflow URI is empty) while keeping all inference routes accessible for testing.
 
 ---
 
