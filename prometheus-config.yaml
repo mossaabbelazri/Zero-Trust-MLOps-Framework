@@ -1,0 +1,43 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: zero-trust-rules
+  namespace: monitoring
+  labels:
+    role: alert-rules
+spec:
+  # (COPIE-COLLE ICI LE CONTENU DE TON prometheus-rules.yml)
+  groups:
+    - name: zero-trust-security-rules
+      rules:
+        # Alerte DDoS : un pod du namespace attack-simulation consomme un CPU anormal
+        # (preuve d'un comportement d'attaque intense)
+        - alert: NodeCompromised
+          expr: |
+            sum by (pod, namespace) (
+              rate(container_cpu_usage_seconds_total{namespace="attack-simulation", container!=""}[1m])
+            ) > 0.05
+          for: 30s
+          labels:
+            severity: critical
+          annotations:
+            summary: "Attaque DDoS détectée depuis le namespace : attack-simulation"
+            description: "Le pod {{ $labels.pod }} dans {{ $labels.namespace }} génère un trafic CPU anormal (> 5% CPU/s), signe d'une attaque DDoS en cours. Auto-remédiation déclenchée."
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: istio-proxies-monitor
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: kube-prometheus
+spec:
+  namespaceSelector:
+    any: true
+  selector:
+    matchLabels:
+      security.istio.io/tlsMode: istio
+  podMetricsEndpoints:
+  - port: http-envoy-prom
+    path: /stats/prometheus
+    interval: 10s

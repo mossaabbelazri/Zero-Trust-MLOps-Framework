@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-model-deployment
+  namespace: default
+  labels:
+    app: ml-serving
+  annotations:
+    vault.hashicorp.com/agent-inject: "true"
+    vault.hashicorp.com/role: "ml-role"
+    vault.hashicorp.com/agent-inject-secret-credentials: "secret/data/mlflow"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-serving
+  template:
+    metadata:
+      labels:
+        app: ml-serving
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "ml-role"
+        vault.hashicorp.com/agent-inject-secret-credentials: "secret/data/mlflow"
+    spec:
+      containers:
+        - name: ml-container
+          # Change this image to your Docker Hub repository
+          image: mossaabbelazri/ml-serving:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5000
+          env:
+            - name: MODEL_NAME
+              value: "MyGenericModel"
+            - name: MODEL_STAGE
+              value: "Production"
+            - name: ANOMALY_THRESHOLD
+              value: "0.5"
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ml-model-service
+  namespace: default
+  annotations:
+    cloud.google.com/backend-config: '{"default": "ml-wafs-config"}'
+spec:
+  type: ClusterIP # ClusterIP so it remains private, Istio manages ingress
+  selector:
+    app: ml-serving
+  ports:
+    - port: 80
+      targetPort: 5000

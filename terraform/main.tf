@@ -1,0 +1,45 @@
+terraform {
+  backend "gcs" {
+    bucket  = "zero-trust-tfstate-bucket"
+    prefix  = "terraform/state"
+  }
+}
+resource "google_container_cluster" "primary" {
+  name     = "nids-zero-trust-cluster"
+  location = "europe-west1-b" # Utilise une ZONE précise plutôt qu'une REGION entière pour économiser les nœuds
+
+# Configuration du mode Standard ultra-léger
+# Augmenté à 4 nœuds pour supporter la charge CPU du module de sécurité Calico (Zero-Trust)
+  initial_node_count = 4 
+
+  node_config {
+    machine_type = "e2-medium" # Machine standard et économique
+    
+    # CORRECTION DU BUG ICI : On passe à 50 Go au lieu de 100 Go par défaut
+    disk_size_gb = 50
+    disk_type    = "pd-standard" # "pd-standard" au lieu de SSD pour contourner le quota SSD_TOTAL_GB
+    
+    image_type   = "COS_CONTAINERD"
+
+    # Sécurité Zero-Trust au niveau du nœud (Bon pour le mémoire !)
+    shielded_instance_config {
+      enable_secure_boot          = true
+      enable_integrity_monitoring = true
+    }
+  }
+
+  # Désactivation des fonctionnalités lourdes non requises pour le lab
+  deletion_protection = false
+
+  # Activation des NetworkPolicies (Murs de feu Layer 4 Zero-Trust)
+  network_policy {
+    enabled  = true
+    provider = "CALICO"
+  }
+
+  addons_config {
+    network_policy_config {
+      disabled = false
+    }
+  }
+}

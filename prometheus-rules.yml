@@ -1,0 +1,16 @@
+groups:
+  - name: zero-trust-security-rules
+    rules:
+      - alert: NodeCompromised
+        # Déclencheur PRO : Détecte un pic massif de requêtes bloquées (403/503)
+        # ou de connexions TCP rejetées brutalement par le proxy mTLS d'Istio.
+        expr: |
+          sum by (destination_workload) (rate(istio_requests_total{response_code=~"403|503"}[1m])) > 10
+          or
+          sum by (destination_workload) (rate(istio_tcp_connections_closed_total{response_flags=~"FI|UC"}[1m])) > 10
+        for: 15s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Brèche Zero-Trust bloquée vers : {{ $labels.destination_workload }}"
+          description: "Une attaque massive (DDoS ou Intrusion latérale) a été interceptée par le pare-feu Istio mTLS. Auto-remédiation Terraform déclenchée."
